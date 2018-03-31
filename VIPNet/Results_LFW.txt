@@ -1,0 +1,68 @@
+Global maxpooling #components=2
+Percentage of discarded filters (1%)
+
+Percentage of discarded filters (5%)
+
+Percentage of discarded filters (10%)
+
+Percentage of discarded filters (15%) 
+
+Percentage of discarded filters (50%)
+____________________________________________________________________________________________
+Global maxpooling #components=6
+Percentage of discarded filters (1%)
+
+Percentage of discarded filters (5%)
+
+Percentage of discarded filters (10%)
+
+Percentage of discarded filters (15%) 
+
+Percentage of discarded filters (50%)
+____________________________________________________________________________________________
+
+Global maxpooling #components=10
+Percentage of discarded filters (1%) 0.009943181818181818
+Mean accuracy 0.9221666666666668 Interval confidence [0.9186966398893197 0.9256366934440139]
+
+Percentage of discarded filters (5%) 0.04995265151515151
+Mean accuracy 0.9195 Interval confidence [0.9123125475070047 0.9266874524929952]
+
+Percentage of discarded filters (10%) 0.09990530303030302
+Mean accuracy 0.9096666666666667 Interval confidence [0.9031648637055925 0.916168469627741]
+
+
+Percentage of discarded filters (15%) 0.15009469696969696
+Mean accuracy 0.892 Interval confidence [0.8828593633619498 0.9011406366380502]
+
+Percentage of discarded filters (50%) 0.5
+Mean accuracy 0.6471666666666668 Interval confidence [0.6352114601491675 0.659121873184166]
+
+____________________________________________________________________________________________
+
+Max pooling 8x8 #components=10
+Percentage of discarded filters (1%) 0.009943181818181818 (ID 12980)
+Mean accuracy 0.9254999999999999 Interval confidence [0.9204684637494213 0.9305315362505785]
+
+Percentage of discarded filters (5%) 0.04995265151515151 (ID 12975)
+Mean accuracy 0.9253333333333332 Interval confidence [0.9177697282503925 0.932896938416274]
+
+Percentage of discarded filters (10%) 0.10014204545454546
+Mean accuracy 0.9208333333333332 Confidence inteval [0.9125316873576209 0.9291349793090454]
+
+Percentage of discarded filters (15%) 0.15009469696969696
+Mean accuracy 0.8966666666666667 Interval confidence [0.8847379486620915 0.9085953846712419]
+
+
+___________________________________________________________________________________________
+
+Max pooling 8x8 #components=2
+Percentage of discarded filters (10%) 0.09990530303030302
+Mean accuracy 0.9118333333333333 Confidence interval [0.9050405475466087 0.9186261191200579]
+____________________________________________________________________________________________
+
+Baseline
+Mean accuracy 0.9241666666666666 Confidence interval [0.9209704601581997 0.9273628731751334]
+
+____________________________________________________________________________________________
+
