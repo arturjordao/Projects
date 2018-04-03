@@ -2,7 +2,6 @@ import numpy as np
 
 def load_model(architecture_file='', weights_file=''):
     import keras
-    print('Load model [{}]. Load weights [{}]'.format(architecture_file, weights_file))
 
     if '.json' not in architecture_file:
         architecture_file = architecture_file+'.json'
@@ -14,6 +13,10 @@ def load_model(architecture_file='', weights_file=''):
         if '.h5' not in weights_file:
             weights_file = weights_file + '.h5'
         model.load_weights(weights_file)
+        print('Load model [{}]. Load weights [{}]'.format(architecture_file, weights_file))
+    else:
+        print('Load model [{}]'.format(architecture_file))
+
     return model
 
 def save_model(file_name='', model=None):
@@ -83,6 +86,60 @@ def cifar_resnet_data(debug=True):
 
     return x_train, y_train, x_test, y_test
 
+def optimizer_compile(model, model_type='VGG16'):
+    import keras
+    if model_type == 'VGG16':
+        sgd = keras.optimizers.SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+        model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
+
+    if model_type == 'ResNetV1':
+        model.compile(loss='categorical_crossentropy',
+                      optimizer=keras.optimizers.Adam(lr=1e-3), metrics=['accuracy'])
+    return model
+
+def lr_schedule(epoch, init_lr=0.01, schedule=[(25, 0.001), (50, 0.0001)]):
+
+    for i in range(0, len(schedule)-1):
+        if epoch > schedule[i][0] and epoch < schedule[i+1][0]:
+            print('Learning rate: ', schedule[i][0])
+            return schedule[i][0]
+
+    if epoch > schedule[-1][0]:
+        print('Learning rate: ', schedule[-1][0])
+        return schedule[-1][1]
+
+    print('Learning rate: ', init_lr)
+    return init_lr
+
+def image_net_data(load_train=True, subtract_pixel_mean=False, path=''):
+    import keras
+
+    if load_train is True:
+        tmp = np.load(path+'imagenet_train.npz')
+        x_train = tmp['X']
+        y_train = tmp['y']
+        x_train = x_train.astype('float32') / 255
+        y_train = keras.utils.to_categorical(y_train, 1000)
+    else:
+        x_train = None
+        y_train = None
+
+    tmp = np.load(path + 'imagenet_val.npz')
+    x_test = tmp['X']
+    y_test = tmp['y']
+    x_test = x_test.astype('float32') / 255
+    y_test = keras.utils.to_categorical(y_test, 1000)
+
+    if subtract_pixel_mean is True:
+        if load_train is False:
+            x_train_mean = np.load(path + 'x_train_mean.npz')['X']
+        else:
+            x_train_mean = np.mean(x_train, axis=0)
+            x_train -= x_train_mean
+        x_test -= x_train_mean
+
+    return x_train, y_train, x_test, y_test
+
 def generate_data_augmentation(X_train):
     print('Using real-time data augmentation.')
     from keras.preprocessing.image import ImageDataGenerator
@@ -103,6 +160,7 @@ def generate_data_augmentation(X_train):
 def count_filters(model):
     import keras
     n_filters = 0
+    #Model contains only Conv layers
     for layer_idx in range(1, len(model.layers)):
 
         layer = model.get_layer(index=layer_idx)
@@ -110,4 +168,65 @@ def count_filters(model):
             config = layer.get_config()
             n_filters+=config['filters']
 
+    #Todo: Model contains Conv and Fully Connected layers
+    # for layer_idx in range(1, len(model.get_layer(index=1))):
+    #     layer = model.get_layer(index=1).get_layer(index=layer_idx)
+    #     if isinstance(layer, keras.layers.Conv2D) == True:
+    #         config = layer.get_config()
+    #     n_filters += config['filters']
     return n_filters
+
+def gini_index(y_predict, y_expected):
+    gini = []
+    c1 = np.where(y_expected != 1)#Negative samples
+    c2 = np.where(y_expected == 1) #Positive samples
+    n = y_expected.shape[0]
+    thresholds = y_predict
+    for th in thresholds:
+
+        tmp = np.where( y_predict[c1] < th )[0] #Predict correctly the negative sample
+        c1c1 = tmp.shape[0]
+        n1 = c1c1
+
+        tmp = np.where( y_predict[c1] >= th )[0] #Predict the negative sample as positive
+        c1c2 = tmp.shape[0]
+        n2 = c1c2
+
+        tmp = np.where( y_predict[c2] >= th )[0] #Predict correctly the positive sample
+        c2c2 = tmp.shape[0]
+        n2 = n2 + c2c2
+        tmp = np.where( y_predict[c2] < th )[0] #Predict the positive samples as negative
+        c2c1 = tmp.shape[0]
+        n1 = n1 + c2c1
+
+        if n1 == 0 or n2 == 0:
+            gini.append(9999)
+            continue
+        else:
+            gini1 = (c1c1/n1)**2 - (c2c1/n1)**2
+            gini1 = 1 - gini1
+            gini1 = (n1/n) * gini1
+
+            gini2 = (c2c2/n2)**2 - (c1c2/n2)**2
+            gini2 = 1 - gini2
+            gini2 = (n2/n) * gini2
+
+
+            gini.append(gini1+gini2)
+    if len(gini)>0:
+        idx = gini.index(min(gini))
+        best_th = thresholds[idx]
+    else:
+        print('Gini threshold not found')
+        best_th = 0
+
+    return best_th
+
+def top_k_accuracy(y_true, y_pred, k):
+    top_n = np.argsort(y_pred, axis=1)[:,-k:]
+    idx_class = np.argmax(y_true, axis=1)
+    hit = 0
+    for i in range(idx_class.shape[0]):
+      if idx_class[i] in top_n[i,:]:
+        hit = hit + 1
+    return float(hit)/idx_class.shape[0]
