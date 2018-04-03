@@ -22,31 +22,6 @@ sys.path.insert(0, '../utils')
 
 import custom_functions as func
 
-def lr_schedule(epoch):
-    """Learning Rate Schedule
-
-    Learning rate is scheduled to be reduced after 80, 120, 160, 180 epochs.
-    Called automatically every epoch as part of callbacks during training.
-
-    # Arguments
-        epoch (int): The number of epochs
-
-    # Returns
-        lr (float32): learning rate
-    """
-    lr = 1e-3
-    if epoch > 180:
-        lr *= 0.5e-3
-    elif epoch > 160:
-        lr *= 1e-3
-    elif epoch > 120:
-        lr *= 1e-2
-    elif epoch > 80:
-        lr *= 1e-1
-    print('Learning rate: ', lr)
-    return lr
-
-
 def resnet_layer(inputs,
                  num_filters=16,
                  kernel_size=3,
@@ -262,6 +237,7 @@ def resnet_v2(input_shape, depth, num_classes=10):
     return model
 
 if __name__ == '__main__':
+    np.random.seed(12227)
     n = 3
     version = 1
     debug = True
@@ -274,89 +250,56 @@ if __name__ == '__main__':
         depth = n * 9 + 2
 
     # Model name, depth and version
-    model_type = 'ResNet%dv%d' % (depth, version)
+    model_type = 'ResNet{}'.format(version)
 
-    x_train, y_train, x_test, y_test = func.cifar_resnet_data(debug)
-    input_shape = x_train.shape[1:]
+    X_train, y_train, X_test, y_test = func.cifar_resnet_data(debug)
+    print('Data augmentation.') if data_augmentation else print('No data augmentation.')
+    input_shape = X_train.shape[1:]
 
     if version == 2:
         model = resnet_v2(input_shape=input_shape, depth=depth)
     else:
         model = resnet_v1(input_shape=input_shape, depth=depth)
 
+    lr = 1e-3
     model.compile(loss='categorical_crossentropy',
-                  optimizer=Adam(lr=lr_schedule(0)),
-                  metrics=['accuracy'])
+                  optimizer=Adam(lr=lr), metrics=['accuracy'])
 
-    print(model_type)
+    max_epochs = 200
+    for epoch in range(1, max_epochs):
 
-    # Prepare model model saving directory.
-    save_dir = os.path.join(os.getcwd(), 'saved_models')
-    model_name = 'cifar10_%s_model.{epoch:03d}.h5' % model_type
-    if not os.path.isdir(save_dir):
-        os.makedirs(save_dir)
-    filepath = os.path.join(save_dir, model_name)
+        if epoch % 50 == 0 and epoch > 0:
+            lr /= 2
+            model.compile(loss='categorical_crossentropy',
+                          optimizer=Adam(lr=lr),metrics=['accuracy'])
 
-    # Prepare callbacks for model saving and for learning rate adjustment.
-    checkpoint = ModelCheckpoint(filepath=filepath,
-                                 monitor='val_acc',
-                                 verbose=1,
-                                 save_best_only=True)
+        # Run training, with or without data augmentation.
+        if not data_augmentation:
+            model.fit(X_train, y_train,
+                      batch_size=32,
+                      epochs=1,
+                      shuffle=True,
+                      verbose=2)
+        else:
+            datagen = ImageDataGenerator(
+                featurewise_center=False,
+                samplewise_center=False,
+                featurewise_std_normalization=False,
+                samplewise_std_normalization=False,
+                zca_whitening=False,
+                rotation_range=0,
+                width_shift_range=0.1,
+                height_shift_range=0.1,
+                horizontal_flip=True,
+                vertical_flip=False)
+            datagen.fit(X_train)
 
-    lr_scheduler = LearningRateScheduler(lr_schedule)
+            model.fit_generator(datagen.flow(X_train, y_train, batch_size=32),
+                                steps_per_epoch=X_train.shape[0],
+                                epochs=1, verbose=2, workers=6)
 
-    lr_reducer = ReduceLROnPlateau(factor=np.sqrt(0.1),
-                                   cooldown=0,
-                                   patience=5,
-                                   min_lr=0.5e-6)
-
-    callbacks = [checkpoint, lr_reducer, lr_scheduler]
-
-    # Run training, with or without data augmentation.
-    if not data_augmentation:
-        print('Not using data augmentation.')
-        model.fit(x_train, y_train,
-                  batch_size=32,
-                  epochs=200,
-                  validation_split=0.1,
-                  shuffle=True,
-                  callbacks=callbacks)
-    else:
-        print('Using real-time data augmentation.')
-        # This will do preprocessing and realtime data augmentation:
-        datagen = ImageDataGenerator(
-            # set input mean to 0 over the dataset
-            featurewise_center=False,
-            # set each sample mean to 0
-            samplewise_center=False,
-            # divide inputs by std of dataset
-            featurewise_std_normalization=False,
-            # divide each input by its std
-            samplewise_std_normalization=False,
-            # apply ZCA whitening
-            zca_whitening=False,
-            # randomly rotate images in the range (deg 0 to 180)
-            rotation_range=0,
-            # randomly shift images horizontally
-            width_shift_range=0.1,
-            # randomly shift images vertically
-            height_shift_range=0.1,
-            # randomly flip images
-            horizontal_flip=True,
-            # randomly flip images
-            vertical_flip=False)
-
-        datagen.fit(x_train)
-
-        # Fit the model on the batches generated by datagen.flow().
-        _, x_val, _, y_val = train_test_split(x_train, y_train, test_size=0.1, random_state=42)
-        model.fit_generator(datagen.flow(x_train, y_train, batch_size=32),
-                            steps_per_epoch=x_train.shape[0],
-                            validation_data=(x_val, y_val),
-                            epochs=200, verbose=1, workers=6,
-                            callbacks=callbacks)
-
-    acc = accuracy_score(y_test, y_pred)
-    cat_acc = recall_score(y_test, y_pred, average='macro')
-
-    print('Accuracy [{:.4f}] Categorical Accuracy [{:.4f}]'.format(acc, cat_acc))
+        model.save_weights('cifar10RestNetV1{}.h5'.format(epoch))
+        y_pred = model.predict(X_test)
+        y_pred = np.argmax(y_pred, axis=1)
+        acc = accuracy_score(y_test, y_pred)
+        print('Accuracy [{:.4f}] on epoch [{}]'.format(acc, epoch))

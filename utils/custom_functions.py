@@ -111,34 +111,43 @@ def lr_schedule(epoch, init_lr=0.01, schedule=[(25, 0.001), (50, 0.0001)]):
     print('Learning rate: ', init_lr)
     return init_lr
 
-def image_net_data(load_train=True, subtract_pixel_mean=False, path=''):
+def image_net_data(load_train=True, load_test=True, subtract_pixel_mean=False,
+                   path='', train_size=1.0, test_size=1.0):
     import keras
-
+    from sklearn.model_selection import train_test_split
+    X_train, y_train, X_test, y_test = (None, None, None, None)
     if load_train is True:
         tmp = np.load(path+'imagenet_train.npz')
-        x_train = tmp['X']
+        X_train = tmp['X']
         y_train = tmp['y']
-        x_train = x_train.astype('float32') / 255
-        y_train = keras.utils.to_categorical(y_train, 1000)
-    else:
-        x_train = None
-        y_train = None
 
-    tmp = np.load(path + 'imagenet_val.npz')
-    x_test = tmp['X']
-    y_test = tmp['y']
-    x_test = x_test.astype('float32') / 255
-    y_test = keras.utils.to_categorical(y_test, 1000)
+        if train_size != 1.0:
+            X_train, _, y_train, _ = train_test_split(X_train, y_train, random_state=42, train_size=train_size)
+
+        X_train = X_train.astype('float32') / 255
+        y_train = keras.utils.to_categorical(y_train, 1000)
+
+    if load_test is True:
+        tmp = np.load(path + 'imagenet_val.npz')
+        X_test = tmp['X']
+        y_test = tmp['y']
+
+        if test_size != 1.0:
+            _, X_test, _, y_test = train_test_split(X_test, y_test, random_state=42, test_size=test_size)
+
+        X_test = X_test.astype('float32') / 255
+        y_test = keras.utils.to_categorical(y_test, 1000)
 
     if subtract_pixel_mean is True:
-        if load_train is False:
-            x_train_mean = np.load(path + 'x_train_mean.npz')['X']
-        else:
-            x_train_mean = np.mean(x_train, axis=0)
-            x_train -= x_train_mean
-        x_test -= x_train_mean
+        X_train_mean = np.load(path + 'x_train_mean.npz')['X']
 
-    return x_train, y_train, x_test, y_test
+        if load_train is True:
+            X_train -= X_train_mean#X_train_mean = np.mean(X_train, axis=0)
+        if load_test is True:
+            X_test -= X_train_mean
+    print('#Training Samples [{}]'.format(X_train.shape[0])) if X_train is not None else print('#Training Samples [0]')
+    print('#Testing Samples [{}]'.format(X_test.shape[0])) if X_test is not None else print('#Testing Samples [0]')
+    return X_train, y_train, X_test, y_test
 
 def generate_data_augmentation(X_train):
     print('Using real-time data augmentation.')

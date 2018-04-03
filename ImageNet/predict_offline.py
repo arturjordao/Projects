@@ -12,7 +12,8 @@ if __name__ == '__main__':
     np.random.seed(12227)
 
     X_train, y_train, X_test, y_test = func.image_net_data(subtract_pixel_mean=True, load_train=False)
-    model = func.load_model(architecture_file='imageNetVGG_design', weights_file='imageNetVGG1')
+    model = func.load_model(architecture_file='../architectures/imageNetVGGType2',
+                            weights_file='../weights/')
 
     y_pred = model.predict(X_test)
     top1_error = 1-accuracy_score(np.argmax(y_test, axis=1), np.argmax(y_pred, axis=1))

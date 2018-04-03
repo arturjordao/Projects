@@ -1,30 +1,26 @@
 import numpy as np
 import keras
+from keras.callbacks import Callback
 
-def lr_schedule(epoch, lr_init=0.01, schedule=((50,0.1), (100, 0.01), (150, 0.001))):
-    """Learning Rate Schedule
+class LearningRateScheduler(Callback):
 
-    Learning rate is scheduled to be reduced after 80, 120, 160, 180 epochs.
-    Called automatically every epoch as part of callbacks during training.
+    def __init__(self, init_lr=0.01, schedule=[(25, 1e-2), (50, 1e-3), (100, 1e-4)]):
+        super(Callback, self).__init__()
+        self.init_lr = init_lr
+        self.schedule = schedule
 
-    # Arguments
-        epoch (int): The number of epochs
-        lr_init (int): Initial learning rate
-        schedule (list of int): epoch and factor, first and second arguments. Factor will be update the initial learning rate (lr = lr*factor)
+    def on_epoch_end(self, epoch, logs={}):
+        lr = self.init_lr
+        for i in range(0, len(self.schedule) - 1):
+            if epoch >= self.schedule[i][0] and epoch < self.schedule[i + 1][0]:
+                lr = self.schedule[i][1]
 
-    # Returns
-        lr (float32): learning rate
-    """
-    lr = lr_init
-    for i in range(0, len(schedule)):
-        ep = schedule[i][0]
-        if epoch == ep:
-            lr = lr*schedule[i][1]
-            print('Learning rate: ', lr)
-            return lr
+        if epoch >= self.schedule[-1][0]:
+            lr = self.schedule[-1][1]
 
-    print('Learning rate: ', lr)
-    return lr
+        print('Learning rate:{}'.format(lr))
+        #K.set_value(self.model.optimizer.lr, lr)
+        keras.backend.set_value(self.model.optimizer.lr, lr)
 
 def custom_stopping(value=0.5, verbose=0):
     early = keras.callbacks.EarlyStoppingByLossVal(monitor='val_loss', value=value, verbose=verbose)
