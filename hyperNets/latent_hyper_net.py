@@ -28,8 +28,15 @@ class LatentHyperNet(BaseEstimator, ClassifierMixin):
         input_shape = model.input_shape
         input_shape = (input_shape[1], input_shape[2], input_shape[3])
         inp = Input(input_shape)
-        feature_maps = [Model(model.input, model.get_layer(index=i).output)(inp) for i in layers]
-        model = Model(inp, feature_maps)
+
+        #This code generates error in VIPER01-02
+        #feature_maps = [Model(model.input, model.get_layer(index=i).output)(inp) for i in layers]
+        outputs = []
+        for i in layers:
+            layer = model.get_layer(index=i+1)#get layer index do not consider input
+            outputs.append(layer.output)
+
+        model = Model(model.input, outputs)
         return model
 
     def fit(self, X, y):

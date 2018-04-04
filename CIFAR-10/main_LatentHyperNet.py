@@ -18,14 +18,15 @@ if __name__ == '__main__':
     np.random.seed(12227)
 
     debug = True
-    layers = [3, 6]
+    layers = [44, 51]
     n_comp = 19
     dm_method = 'pls'
 
     X_train, y_train, X_test, y_test = func.cifar_vgg_data(debug)
 
 
-    cnn_model = func.load_model(architecture_file='../CIFAR-10/cifar10vgg_design', weights_file='cifar10vgg_weights')
+    cnn_model = func.load_model(architecture_file='../architectures/cifar10VGG',
+                                weights_file='')
 
     print('Layers{}'.format(layers)) if dm_method=='' else print('Layers{} Number of Components[{}] Method[{}]'.format(layers, n_comp, dm_method))
 
