@@ -25,6 +25,7 @@ class LatentHyperNet(BaseEstimator, ClassifierMixin):
         self.layers = layers
 
     def custom_model(self, model, layers):
+        import keras
         input_shape = model.input_shape
         input_shape = (input_shape[1], input_shape[2], input_shape[3])
         inp = Input(input_shape)
@@ -33,7 +34,7 @@ class LatentHyperNet(BaseEstimator, ClassifierMixin):
         #feature_maps = [Model(model.input, model.get_layer(index=i).output)(inp) for i in layers]
         outputs = []
         for i in layers:
-            layer = model.get_layer(index=i+1)#get layer index do not consider input
+            layer = model.get_layer(index=i)
             outputs.append(layer.output)
 
         model = Model(model.input, outputs)

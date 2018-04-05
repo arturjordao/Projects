@@ -185,6 +185,43 @@ def count_filters(model):
     #     n_filters += config['filters']
     return n_filters
 
+def count_filters_layer(model):
+    import keras
+    n_filters = ''
+    #Model contains only Conv layers
+    for layer_idx in range(1, len(model.layers)):
+
+        layer = model.get_layer(index=layer_idx)
+        if isinstance(layer, keras.layers.Conv2D) is True:
+            config = layer.get_config()
+            n_filters+=str(config['filters']) + ' '
+
+    return n_filters
+
+def compute_flops(model):
+    import keras
+    total_flops =0
+    flops_per_layer = []
+
+    for layer_idx in range(1, len(model.layers)):
+        layer = model.get_layer(index=layer_idx)
+        if isinstance(layer, keras.layers.Conv2D) is True:
+            _, output_map_H, output_map_W, current_layer_depth = layer.output_shape
+
+            _, _, _, previous_layer_depth = layer.input_shape
+            kernel_H, kernel_W = layer.kernel_size
+
+            flops = output_map_H*output_map_W*previous_layer_depth*current_layer_depth*kernel_H*kernel_W
+            total_flops += flops
+            flops_per_layer.append(flops)
+
+
+    # if total_flops / 1e9 > 1:  # for Giga Flops
+    #     print(total_flops / 1e9, '{}'.format('GFlops'))
+    # else:
+    #     print(total_flops / 1e6, '{}'.format('MFlops'))
+    return total_flops, flops_per_layer
+
 def gini_index(y_predict, y_expected):
     gini = []
     c1 = np.where(y_expected != 1)#Negative samples

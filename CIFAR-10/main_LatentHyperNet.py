@@ -18,22 +18,26 @@ if __name__ == '__main__':
     np.random.seed(12227)
 
     debug = True
-    layers = [44, 51]
-    n_comp = 19
+    layers = [45, 52, 55]
+    n_comp = 8
     dm_method = 'pls'
 
     X_train, y_train, X_test, y_test = func.cifar_vgg_data(debug)
 
 
     cnn_model = func.load_model(architecture_file='../architectures/cifar10VGG',
-                                weights_file='')
+                                weights_file='../weights/cifar10VGG++')
 
+    id_layer = ''
+    for i in range(0, len(cnn_model.layers)):
+        id_layer += '['+str(i)+' '+ str(type(cnn_model.get_layer(index=i))).split('.')[-1].replace('>', '') + '] '
+    print(id_layer)
     print('Layers{}'.format(layers)) if dm_method=='' else print('Layers{} Number of Components[{}] Method[{}]'.format(layers, n_comp, dm_method))
 
     if dm_method != '':
         hyper_net = LatentHyperNet(n_comp=n_comp, model=cnn_model, layers=layers, dm_method=dm_method)
     else:
-        hyper_net = LatentHyperNet(model=model, layers=layers)
+        hyper_net = LatentHyperNet(model=cnn_model, layers=layers)
 
     if hyper_net.dm_method is not None:
         hyper_net.fit(X_train, y_train)

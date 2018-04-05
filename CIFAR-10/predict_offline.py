@@ -23,8 +23,9 @@ def baseline(architecture_file, weights_file, X_train, X_test, y_train, y_test):
     cat_acc = recall_score(y_test, y_pred, average='macro')
 
     n_filters = func.count_filters(model)
+    flops, _ = func.compute_flops(model)
 
-    print('Number of Parameters [{}] Number of Filters [{}] Accuracy [{:.4f}] Categorical Accuracy [{:.4f}] Time[{:.4f}]'.format(model.count_params(), n_filters, acc, cat_acc, end - start))
+    print('Number of Parameters [{}] Number of Filters [{}] FLOPS [{}] Accuracy [{:.4f}] Time[{:.4f}]'.format(model.count_params(), n_filters, flops, acc, end - start))
 
 if __name__ == '__main__':
     np.random.seed(12227)
@@ -38,7 +39,7 @@ if __name__ == '__main__':
     initial_iteration = 0
     for i in range(initial_iteration, max_iterations):
 
-        file_name='models/model_iteration{}'.format(i)
+        file_name='../VIPNet/<>/model_iteration{}'.format(i)
         model = func.load_model(file_name, file_name)
 
         start = time.time()
@@ -47,8 +48,10 @@ if __name__ == '__main__':
 
         y_pred = np.argmax(y_pred, axis=1)
         acc = accuracy_score(y_test, y_pred)
-        cat_acc = recall_score(y_test, y_pred, average='macro')
+        #cat_acc = recall_score(y_test, y_pred, average='macro')
 
         n_filters = func.count_filters(model.get_layer(index=1))
-
-        print('Number of Parameters [{}] Number of Filters [{}] Accuracy [{:.4f}] Categorical Accuracy [{:.4f}] Time[{:.4f}]'.format(model.count_params(), n_filters, acc, cat_acc, end - start))
+        filter_layer = func.count_filters_layer(model.get_layer(index=1))
+        flops, _ = func.compute_flops(model.get_layer(index=1))
+        print('Number of Parameters [{}] Number of Filters [{}] FLOPS [{}] Accuracy [{:.4f}] Time[{:.4f}]'.format(model.count_params(), n_filters, flops, acc, end - start))
+        print('{}'.format(filter_layer))
