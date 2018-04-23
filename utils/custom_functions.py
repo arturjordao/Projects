@@ -13,9 +13,9 @@ def load_model(architecture_file='', weights_file=''):
         if '.h5' not in weights_file:
             weights_file = weights_file + '.h5'
         model.load_weights(weights_file)
-        print('Load model [{}]. Load weights [{}]'.format(architecture_file, weights_file))
+        print('Load architecture [{}]. Load weights [{}]'.format(architecture_file, weights_file))
     else:
-        print('Load model [{}]'.format(architecture_file))
+        print('Load architecture [{}]'.format(architecture_file))
 
     return model
 
@@ -27,14 +27,25 @@ def save_model(file_name='', model=None):
     with open(file_name + '.json', 'w') as f:
         f.write(model.to_json())
 
-def cifar_vgg_data(debug=True):
+def cifar_vgg_data(debug=True, cifar_type=10, train_size=1.0, test_size=1.0):
     import keras
+    from sklearn.model_selection import train_test_split
     print('Debuging Mode') if debug is True else print('Real Mode')
 
-    (X_train, y_train), (X_test, y_test) = keras.datasets.cifar10.load_data()
+    if cifar_type == 10:
+        (X_train, y_train), (X_test, y_test) = keras.datasets.cifar10.load_data()
+    if cifar_type == 100:
+        (X_train, y_train), (X_test, y_test) = keras.datasets.cifar100.load_data()
+
+    if train_size!=1.0:
+        X_train, _, y_train, _ = train_test_split(X_train, y_train, random_state=42, train_size=train_size)
+    if test_size!=1.0:
+        _, X_test, _, y_test = train_test_split(X_test, y_test, random_state=42, test_size=test_size)
+
     X_train = X_train.astype('float32')
     X_test = X_test.astype('float32')
 
+    #Works only for CIFAR-10
     if debug:
         idx_train = [4, 5, 32, 6, 24, 41, 38, 39, 59, 58, 28, 20, 27, 40, 51, 95, 103, 104, 84, 85, 87, 62, 8, 92, 67,
                      71, 76, 93, 129, 76]
@@ -46,8 +57,8 @@ def cifar_vgg_data(debug=True):
         X_test = X_test[idx_test]
         y_test = y_test[idx_test]
 
-    y_train = keras.utils.to_categorical(y_train, 10)
-    y_test = keras.utils.to_categorical(y_test, 10)
+    y_train = keras.utils.to_categorical(y_train, cifar_type)
+    y_test = keras.utils.to_categorical(y_test, cifar_type)
     y_test = np.argmax(y_test, axis=1)
 
     mean = 120.707
@@ -221,6 +232,147 @@ def compute_flops(model):
     # else:
     #     print(total_flops / 1e6, '{}'.format('MFlops'))
     return total_flops, flops_per_layer
+
+def generate_conv_model(model):
+    from keras.layers import MaxPooling2D, Dropout, Activation
+    from keras.layers import Input, BatchNormalization, Conv2D
+    from keras.models import Model
+
+    model = model.get_layer(index=1)
+    inp = (model.inputs[0].shape.dims[1].value,
+           model.inputs[0].shape.dims[2].value,
+           model.inputs[0].shape.dims[3].value)
+
+    H = Input(inp)
+    inp = H
+
+    for layer_idx in range(1, len(model.layers)):
+
+        layer = model.get_layer(index=layer_idx)
+        config = layer.get_config()
+
+        if isinstance(layer, MaxPooling2D):
+            H = MaxPooling2D.from_config(config)(H)
+
+        if isinstance(layer, Dropout):
+            H = Dropout.from_config(config)(H)
+
+        if isinstance(layer, Activation):
+            H = Activation.from_config(config)(H)
+
+        if isinstance(layer, BatchNormalization):
+            weights = layer.get_weights()
+            H = BatchNormalization(weights=weights)(H)
+
+        elif isinstance(layer, Conv2D):
+            weights = layer.get_weights()
+
+            config['filters'] = weights[1].shape[0]
+            H = Conv2D(activation=config['activation'],
+                       activity_regularizer=config['activity_regularizer'],
+                       bias_constraint=config['bias_constraint'],
+                       bias_regularizer=config['bias_regularizer'],
+                       data_format=config['data_format'],
+                       dilation_rate=config['dilation_rate'],
+                       filters=config['filters'],
+                       kernel_constraint=config['kernel_constraint'],
+                       kernel_regularizer=config['kernel_regularizer'],
+                       kernel_size=config['kernel_size'],
+                       name=config['name'],
+                       padding=config['padding'],
+                       strides=config['strides'],
+                       trainable=config['trainable'],
+                       use_bias=config['use_bias'],
+                       weights=weights
+                       )(H)
+    return Model(inp, H)
+
+def convert_model(model, inp=None):
+    #This fuction convertes a model from Input->Model -> Dense -> Dese
+    # to Input -> Conv2D->...->Dense->Dense
+    import keras
+    from keras.layers import Conv2D, MaxPooling2D, Dropout, Dense, Flatten
+    from keras.layers import Input, BatchNormalization, Activation
+
+    if inp is None:
+        inp = (model.inputs[0].shape.dims[1].value,
+               model.inputs[0].shape.dims[2].value,
+               model.inputs[0].shape.dims[3].value)
+
+    H = Input(inp)
+    inp = H
+    new_idx = 1
+    #Check if the convolutional layers are a layer in current model
+    if isinstance(model.get_layer(index=1), keras.models.Model):
+        cnn_model = model.get_layer(index=1)
+
+        for layer in cnn_model.layers:
+            config = layer.get_config()
+            new_idx = new_idx+1
+            if isinstance(layer, MaxPooling2D):
+                H = MaxPooling2D.from_config(config)(H)
+
+            if isinstance(layer, Dropout):
+                H = Dropout.from_config(config)(H)
+
+            if isinstance(layer, Activation):
+                H = Activation.from_config(config)(H)
+
+            if isinstance(layer, BatchNormalization):
+                weights = layer.get_weights()
+                H = BatchNormalization(weights=weights)(H)
+
+            if isinstance(layer, Conv2D):
+                weights = layer.get_weights()
+                H = Conv2D(activation=config['activation'],
+                           activity_regularizer=config['activity_regularizer'],
+                           bias_constraint=config['bias_constraint'],
+                           bias_regularizer=config['bias_regularizer'],
+                           data_format=config['data_format'],
+                           dilation_rate=config['dilation_rate'],
+                           filters=config['filters'],
+                           kernel_constraint=config['kernel_constraint'],
+                           kernel_regularizer=config['kernel_regularizer'],
+                           kernel_size=config['kernel_size'],
+                           name=config['name'],
+                           padding=config['padding'],
+                           strides=config['strides'],
+                           trainable=config['trainable'],
+                           use_bias=config['use_bias'],
+                           weights=weights
+                           )(H)
+
+    for layer in model.layers:
+        config = layer.get_config()
+
+        layer_id = config['name'].split('_')[-1]
+        config['name'] = config['name'].replace(layer_id, str(new_idx))
+        new_idx = new_idx+1
+
+        if isinstance(layer, Dropout):
+            H = Dropout.from_config(config)(H)
+
+        if isinstance(layer, Activation):
+            H = Activation.from_config(config)(H)
+
+        if isinstance(layer, Flatten):
+            H = Flatten()(H)
+
+        if isinstance(layer, Dense):
+            weights = layer.get_weights()
+            H = Dense(units=config['units'],
+                      activation=config['activation'],
+                      use_bias=config['use_bias'],
+                      kernel_initializer=config['kernel_initializer'],
+                      bias_initializer=config['bias_initializer'],
+                      kernel_regularizer=config['kernel_regularizer'],
+                      bias_regularizer=config['bias_regularizer'],
+                      activity_regularizer=config['activity_regularizer'],
+                      kernel_constraint=config['kernel_constraint'],
+                      bias_constraint=config['bias_constraint'],
+                      weights=weights)(H)
+
+    return keras.models.Model(inp, H)
 
 def gini_index(y_predict, y_expected):
     gini = []

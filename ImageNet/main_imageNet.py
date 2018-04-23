@@ -6,27 +6,34 @@ import time
 import sys
 sys.path.insert(0, '../utils')
 import custom_functions as func
+import custom_callbacks
 
 if __name__ == '__main__':
     np.random.seed(12227)
 
     X_train, y_train, X_test, y_test = func.image_net_data(subtract_pixel_mean=True)
-    cnn_model = func.load_model(architecture_file='../architectures/imageNetVGGType2')
 
-    lr_decay = 1e-6
-    lr = 0.01
-    sgd = keras.optimizers.SGD(lr=lr, decay=lr_decay, momentum=0.9, nesterov=True)
-    model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
+    model_type = 'VGG16'  # 'VGG16' or 'ResNetV1'
+    if model_type == 'VGG16':
+        lr = 0.01
+        schedule = [(25, 1e-3), (50, 1e-4), (75, 1e-5), (100, 1e-6), (150, 1e-7)]
+    if model_type == 'ResNetV1':
+        lr = 1e-3
+        schedule = [(80, 1e-4), (120, 1e-5), (160, 1e-6), (180, 5e-7)]
+
+    model = func.load_model(architecture_file='../architectures/imageNetVGGType2',
+                            weights_file='')
+
+    lr_scheduler = custom_callbacks.LearningRateScheduler(init_lr=lr, schedule=schedule)
+    callbacks = [lr_scheduler]
 
     max_epochs = 200
-    for epoch in range(1, max_epochs):
+    model = func.optimizer_compile(model, model_type)
 
-        if epoch % 50 == 0 and epoch > 0:
-            lr /= 2
-            sgd = keras.optimizers.SGD(lr=lr, decay=lr_decay, momentum=0.9, nesterov=True)
-            model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
+    model.fit(X_train, y_train, epochs=max_epochs, batch_size=128,
+              callbacks=callbacks, verbose=2)
 
-        model.fit(X_train, y_train, epochs=1, batch_size=128, verbose=2)
-        top1_error = 1-accuracy_score(np.argmax(y_test, axis=1), np.argmax(model.predict(X_test), axis=1))
-        print('Top1 Error of [{:.4f}] at Iteration [{}]'.format(top1_error, epoch))
-        model.save_weights('imageNetVGG{}.h5'.format(epoch))
+    y_pred = model.predict(X_test)
+    top1_error, top5_error = (1 - func.top_k_accuracy(y_test, y_pred, 1), 1 - func.top_k_accuracy(y_test, y_pred, 5))
+    print('Top1 Error of [{:.4f}] Top 5 Error of [{:.4f}]'.format(top1_error, top5_error))
+    model.save_weights('imageNetVGGType2_NewImplementation')
