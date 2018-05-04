@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     baseline('', '', X_train, X_test, y_train, y_test)
 
-    max_iterations = 20
+    max_iterations = 14
     initial_iteration = 0
     for i in range(initial_iteration, max_iterations):
 

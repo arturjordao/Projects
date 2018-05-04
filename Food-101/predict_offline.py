@@ -30,14 +30,14 @@ def baseline(architecture_file, weights_file, X_test, y_test):
 if __name__ == '__main__':
     np.random.seed(12227)
 
-    X_train, y_train, X_test, y_test = func.image_net_data(subtract_pixel_mean=True, load_train=False)
+    X_train, y_train, X_test, y_test = func.food_data(subtract_pixel_mean=True)
 
-    baseline('../architectures/imageNetVGGType2', '../weights/imageNetVGGType2', X_test, y_test)
+    baseline('../architectures/food101VGG', '../weights/food101VGG', X_test, y_test)
 
     max_iterations = 14
     initial_iteration = 0
     for i in range(initial_iteration, max_iterations):
-        file_name = '../VIPNet/models_imageNet_<>/model_iteration{}'.format(i)
+        file_name = '../VIPNet/models_food101_10/model_iteration{}'.format(i)
         model = func.load_model(file_name, file_name)
 
         n_filters = func.count_filters(model.get_layer(index=1))

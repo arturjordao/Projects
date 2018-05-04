@@ -32,12 +32,12 @@ if __name__ == '__main__':
 
     X_train, y_train, X_test, y_test = func.image_net_data(subtract_pixel_mean=True, load_train=False)
 
-    baseline('../architectures/imageNetVGGType2', '../weights/imageNetVGGType2', X_test, y_test)
+    baseline('', '', X_test, y_test)
 
     max_iterations = 14
-    initial_iteration = 0
+    initial_iteration = 2
     for i in range(initial_iteration, max_iterations):
-        file_name = '../VIPNet/models_imageNet_<>/model_iteration{}'.format(i)
+        file_name = '../VIPNet/models_imageNet_05/model_iteration{}'.format(i)
         model = func.load_model(file_name, file_name)
 
         n_filters = func.count_filters(model.get_layer(index=1))
